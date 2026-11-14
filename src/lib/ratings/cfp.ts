@@ -40,8 +40,14 @@ export function determineConferenceChampions(
   records: RecordForStandings[],
   ratingByTeam: Map<string, RatingRow>
 ): ConferenceChampion[] {
+  // CFBD's /records endpoint returns every classification (FCS, D2, D3,
+  // NAIA...), not just FBS. Scope "conferences" down to ones that actually
+  // have an FBS (rated) member, otherwise this fills up with hundreds of
+  // small-college conferences that can never appear in the CFP field anyway.
   const conferences = new Set(
-    records.map((r) => r.conference).filter((c): c is string => !!c)
+    Array.from(ratingByTeam.values())
+      .map((r) => r.conference)
+      .filter((c): c is string => !!c)
   );
 
   const champFromGame = new Map<string, ConferenceChampion>();
