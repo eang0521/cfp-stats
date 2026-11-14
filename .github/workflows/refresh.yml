@@ -1,0 +1,20 @@
+name: Refresh CFB data
+
+on:
+  schedule:
+    # Every 3 hours, year-round. Adjust freely — e.g. tighten to hourly on
+    # Thu-Sun during the season if you want faster same-day score updates.
+    - cron: "0 */3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call refresh endpoint
+        run: |
+          curl --fail --silent --show-error \
+            --max-time 90 \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.REFRESH_URL }}"
