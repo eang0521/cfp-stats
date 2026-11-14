@@ -18,3 +18,4 @@ jobs:
             -X POST \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "${{ secrets.REFRESH_URL }}"
+
