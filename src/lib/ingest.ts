@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "./db/client";
 import { games, ratings, refreshLog, teamGameStats, teamRecords, teams } from "./db/schema";
 import { cfbd } from "./cfbd/client";
@@ -55,10 +55,22 @@ async function upsertTeams(season: number) {
   return cfbdTeams;
 }
 
-async function upsertGames(season: number) {
+async function upsertGames(season: number, fbsTeamNames: Set<string>) {
   const regular = await cfbd.games({ year: season, seasonType: "regular" });
   const postseason = await cfbd.games({ year: season, seasonType: "postseason" });
-  const allGames = [...regular, ...postseason];
+  // CFBD's /games returns every classification (FBS, FCS, D2, D3...) for the
+  // year with no server-side filter for it. Keep only games with at least one
+  // FBS side - this is what "every FBS game" means, and it also drops the
+  // small-college games whose `completed` flag CFBD rarely bothers to set,
+  // which would otherwise make "find the next incomplete week" logic stick
+  // on a long-finished week.
+  const allGames = [...regular, ...postseason].filter(
+    (g) => fbsTeamNames.has(g.homeTeam) || fbsTeamNames.has(g.awayTeam)
+  );
+
+  // Full replace rather than upsert-only, so a game that no longer qualifies
+  // (or stale rows from before this filter existed) don't linger forever.
+  await db.delete(games).where(eq(games.season, season));
 
   for (const batch of chunk(allGames, 200)) {
     await db
@@ -100,8 +112,11 @@ async function upsertGames(season: number) {
   return allGames;
 }
 
-async function upsertAdvancedStats(season: number) {
-  const rows = await cfbd.advancedGameStats({ year: season });
+async function upsertAdvancedStats(season: number, fbsTeamNames: Set<string>) {
+  const allRows = await cfbd.advancedGameStats({ year: season });
+  const rows = allRows.filter((r) => fbsTeamNames.has(r.team));
+
+  await db.delete(teamGameStats).where(eq(teamGameStats.season, season));
 
   for (const batch of chunk(rows, 200)) {
     await db
@@ -143,8 +158,11 @@ async function upsertAdvancedStats(season: number) {
   return rows;
 }
 
-async function upsertRecords(season: number) {
-  const rows = await cfbd.records({ year: season });
+async function upsertRecords(season: number, fbsTeamNames: Set<string>) {
+  const allRows = await cfbd.records({ year: season });
+  const rows = allRows.filter((r) => fbsTeamNames.has(r.team));
+
+  await db.delete(teamRecords).where(eq(teamRecords.season, season));
 
   for (const batch of chunk(rows, 200)) {
     await db
@@ -187,9 +205,10 @@ export async function runIngest(season: number = currentSeasonYear()) {
 
   try {
     const cfbdTeams = await upsertTeams(season);
-    const allGames = await upsertGames(season);
-    const advancedStats = await upsertAdvancedStats(season);
-    await upsertRecords(season);
+    const fbsTeamNames = new Set(cfbdTeams.map((t) => t.school));
+    const allGames = await upsertGames(season, fbsTeamNames);
+    const advancedStats = await upsertAdvancedStats(season, fbsTeamNames);
+    await upsertRecords(season, fbsTeamNames);
 
     const teamInputs: TeamInput[] = cfbdTeams.map((t) => ({
       id: t.id,
