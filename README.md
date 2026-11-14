@@ -36,11 +36,34 @@ This is a transparent approximation of what Bill Connelly's SP+ does
 conceptually — it is **not** a reproduction of the real (non-public) SP+
 formula.
 
+The engine also computes a few supplementary, purely data-derived resume
+metrics per team, all exposed on the [Build Your Own Ranking](src/app/custom)
+page:
+
+- **SOS** (strength of schedule): average overall rating of every opponent played.
+- **SOV** (strength of victory): average overall rating of opponents *beaten*.
+- **SOSOS** (strength of schedule's schedule): average SOS of this team's own
+  opponents — i.e. did the teams you played themselves face a tough slate.
+  This is a second pass over the same opponent graph (it needs every team's
+  SOS finished first), with no subjective inputs.
+
+## Build your own ranking
+
+`/custom` lets a user weight offense, defense, scoring margin, SOS, SOV,
+SOSOS, and win% themselves. Each metric is converted to a z-score (standard
+deviations from the FBS mean) before weighting, so the sliders are comparable
+regardless of a metric's native scale, and recomputed/re-sorted entirely in
+the browser (see [`CustomRankingsClient.tsx`](src/app/custom/CustomRankingsClient.tsx)).
+It's deliberately independent from the site's own blended `overallRating`.
+
 ## CFP projection logic
 
 See [`src/lib/ratings/cfp.ts`](src/lib/ratings/cfp.ts). Mirrors the real
 12-team format:
 
+- "FBS Independents" isn't a real conference — it has no championship game,
+  so Notre Dame/UConn/etc. are only ever eligible for an at-large bid, never a
+  conference-champion auto-bid.
 - A conference's champion is read off its championship game result when CFBD
   has tagged one (`notes` field containing "Championship"); otherwise it falls
   back to the best conference record (ties broken by rating). This fallback

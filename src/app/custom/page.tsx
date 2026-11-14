@@ -15,6 +15,7 @@ export default async function CustomRankingsPage() {
     srsRating: r.srsRating,
     sosRating: r.sosRating,
     sovRating: r.sovRating,
+    sososRating: r.sososRating,
     wins: r.wins,
     losses: r.losses,
     gamesPlayed: r.gamesPlayed,

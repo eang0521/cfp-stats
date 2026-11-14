@@ -120,6 +120,7 @@ export async function getCfpProjection(season?: number): Promise<{
         srsRating: r.srsRating ?? 0,
         sosRating: r.sosRating ?? 0,
         sovRating: r.sovRating ?? 0,
+        sososRating: r.sososRating ?? 0,
         wins: r.wins,
         losses: r.losses,
         gamesPlayed: r.gamesPlayed,

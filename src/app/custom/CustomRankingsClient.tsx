@@ -12,13 +12,14 @@ export interface CustomRankingRow {
   srsRating: number | null;
   sosRating: number | null;
   sovRating: number | null;
+  sososRating: number | null;
   wins: number;
   losses: number;
   gamesPlayed: number;
   rank: number | null;
 }
 
-type MetricKey = "offense" | "defense" | "margin" | "sos" | "sov" | "winPct";
+type MetricKey = "offense" | "defense" | "margin" | "sos" | "sov" | "sosos" | "winPct";
 
 const METRICS: { key: MetricKey; label: string; hint: string }[] = [
   { key: "offense", label: "Offense", hint: "Adjusted offensive efficiency (PPA/play)" },
@@ -26,6 +27,11 @@ const METRICS: { key: MetricKey; label: string; hint: string }[] = [
   { key: "margin", label: "Scoring margin", hint: "Opponent-adjusted average point margin (SRS)" },
   { key: "sos", label: "Strength of schedule", hint: "Average rating of all opponents played" },
   { key: "sov", label: "Strength of victory", hint: "Average rating of opponents beaten" },
+  {
+    key: "sosos",
+    label: "Strength of schedule's schedule",
+    hint: "Average SOS of your own opponents - rewards playing teams who themselves played a tough slate",
+  },
   { key: "winPct", label: "Win percentage", hint: "Wins / games played" },
 ];
 
@@ -34,19 +40,19 @@ type Weights = Record<MetricKey, number>;
 const PRESETS: { label: string; weights: Weights }[] = [
   {
     label: "Equal weights",
-    weights: { offense: 1, defense: 1, margin: 1, sos: 1, sov: 1, winPct: 1 },
+    weights: { offense: 1, defense: 1, margin: 1, sos: 1, sov: 1, sosos: 1, winPct: 1 },
   },
   {
     label: "Efficiency-focused (close to site rating)",
-    weights: { offense: 1.4, defense: 1.4, margin: 0.6, sos: 0, sov: 0, winPct: 0 },
+    weights: { offense: 1.4, defense: 1.4, margin: 0.6, sos: 0, sov: 0, sosos: 0, winPct: 0 },
   },
   {
     label: "Resume-focused",
-    weights: { offense: 0.3, defense: 0.3, margin: 0.5, sos: 1, sov: 1.5, winPct: 1.5 },
+    weights: { offense: 0.3, defense: 0.3, margin: 0.5, sos: 1, sov: 1.5, sosos: 0.5, winPct: 1.5 },
   },
   {
     label: "Pure results (wins + schedule only)",
-    weights: { offense: 0, defense: 0, margin: 0, sos: 1, sov: 1, winPct: 2 },
+    weights: { offense: 0, defense: 0, margin: 0, sos: 1, sov: 1, sosos: 0.5, winPct: 2 },
   },
 ];
 
@@ -118,6 +124,7 @@ export function CustomRankingsClient({
       margin: zScores(rows.map((r) => r.srsRating ?? 0)),
       sos: zScores(rows.map((r) => r.sosRating ?? 0)),
       sov: zScores(rows.map((r) => r.sovRating ?? 0)),
+      sosos: zScores(rows.map((r) => r.sososRating ?? 0)),
       winPct: zScores(winPct),
     };
 

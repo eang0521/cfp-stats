@@ -113,6 +113,7 @@ export const ratings = pgTable(
     srsRating: real("srs_rating"), // margin-based SRS blend component
     sosRating: real("sos_rating"), // avg opponent overall rating (strength of schedule)
     sovRating: real("sov_rating"), // avg overall rating of opponents beaten (strength of victory)
+    sososRating: real("sosos_rating"), // avg SOS of opponents (strength of schedule's schedule)
     wins: integer("wins").notNull().default(0),
     losses: integer("losses").notNull().default(0),
     rank: integer("rank"),

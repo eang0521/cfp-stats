@@ -48,6 +48,8 @@ export interface RatingRow {
   sosRating: number;
   /** Strength of victory: average overall rating of opponents this team has beaten. */
   sovRating: number;
+  /** "Strength of schedule's schedule": average SOS of this team's own opponents - how tough a slate did the teams you played themselves face. */
+  sososRating: number;
   wins: number;
   losses: number;
   gamesPlayed: number;
@@ -236,6 +238,16 @@ export function computeRatings(
     lossesByTeam.set(team, results.filter((g) => g.margin < 0).length);
   }
 
+  // "Strength of schedule's schedule": average SOS of this team's own
+  // opponents. A second pass, since it needs every team's `sos` finished
+  // first. Answers "did you play teams who themselves played a tough slate",
+  // which plain SOS (one hop) doesn't capture.
+  const sosos = new Map<string, number>();
+  for (const team of teamNames) {
+    const opponents = (srsGamesByTeam.get(team) ?? []).map((g) => g.opponent);
+    sosos.set(team, mean(opponents.map((o) => sos.get(o) ?? 0)));
+  }
+
   const teamByName = new Map(teams.map((t) => [t.school, t]));
 
   const rows: RatingRow[] = teamNames.map((team) => {
@@ -250,6 +262,7 @@ export function computeRatings(
       srsRating: srs.get(team) ?? 0,
       sosRating: sos.get(team) ?? 0,
       sovRating: sov.get(team) ?? 0,
+      sososRating: sosos.get(team) ?? 0,
       wins: winsByTeam.get(team) ?? 0,
       losses: lossesByTeam.get(team) ?? 0,
       gamesPlayed: (effGamesByTeam.get(team) ?? []).length,
