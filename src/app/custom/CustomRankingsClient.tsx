@@ -13,13 +13,30 @@ export interface CustomRankingRow {
   sosRating: number | null;
   sovRating: number | null;
   sososRating: number | null;
+  successRateNet: number | null;
+  explosivenessNet: number | null;
+  turnoverMargin: number | null;
+  atsMargin: number | null;
+  qualityWins: number;
   wins: number;
   losses: number;
   gamesPlayed: number;
   rank: number | null;
 }
 
-type MetricKey = "offense" | "defense" | "margin" | "sos" | "sov" | "sosos" | "winPct";
+type MetricKey =
+  | "offense"
+  | "defense"
+  | "margin"
+  | "sos"
+  | "sov"
+  | "sosos"
+  | "successRate"
+  | "explosiveness"
+  | "turnovers"
+  | "ats"
+  | "qualityWins"
+  | "winPct";
 
 const METRICS: { key: MetricKey; label: string; hint: string }[] = [
   { key: "offense", label: "Offense", hint: "Adjusted offensive efficiency (PPA/play)" },
@@ -32,27 +49,75 @@ const METRICS: { key: MetricKey; label: string; hint: string }[] = [
     label: "Strength of schedule's schedule",
     hint: "Average SOS of your own opponents - rewards playing teams who themselves played a tough slate",
   },
+  {
+    key: "successRate",
+    label: "Success rate",
+    hint: "Raw (not opponent-adjusted) offense minus defense success rate on a play",
+  },
+  {
+    key: "explosiveness",
+    label: "Explosiveness",
+    hint: "Raw offense minus defense explosiveness (big-play ability, both sides)",
+  },
+  { key: "turnovers", label: "Turnover margin", hint: "Average takeaways minus giveaways per game" },
+  {
+    key: "ats",
+    label: "Beats the spread",
+    hint: "Average margin vs. the consensus closing betting line - how much better than market expectations",
+  },
+  {
+    key: "qualityWins",
+    label: "Quality wins",
+    hint: "Wins over a team that was AP Top 25 at the time of the game",
+  },
   { key: "winPct", label: "Win percentage", hint: "Wins / games played" },
 ];
 
 type Weights = Record<MetricKey, number>;
 
+const BASE_WEIGHTS: Weights = {
+  offense: 0,
+  defense: 0,
+  margin: 0,
+  sos: 0,
+  sov: 0,
+  sosos: 0,
+  successRate: 0,
+  explosiveness: 0,
+  turnovers: 0,
+  ats: 0,
+  qualityWins: 0,
+  winPct: 0,
+};
+
 const PRESETS: { label: string; weights: Weights }[] = [
   {
     label: "Equal weights",
-    weights: { offense: 1, defense: 1, margin: 1, sos: 1, sov: 1, sosos: 1, winPct: 1 },
+    weights: { ...BASE_WEIGHTS, ...Object.fromEntries(METRICS.map((m) => [m.key, 1])) },
   },
   {
     label: "Efficiency-focused (close to site rating)",
-    weights: { offense: 1.4, defense: 1.4, margin: 0.6, sos: 0, sov: 0, sosos: 0, winPct: 0 },
+    weights: { ...BASE_WEIGHTS, offense: 1.4, defense: 1.4, margin: 0.6, successRate: 0.3, explosiveness: 0.3 },
   },
   {
     label: "Resume-focused",
-    weights: { offense: 0.3, defense: 0.3, margin: 0.5, sos: 1, sov: 1.5, sosos: 0.5, winPct: 1.5 },
+    weights: {
+      ...BASE_WEIGHTS,
+      offense: 0.3,
+      defense: 0.3,
+      margin: 0.5,
+      sos: 1,
+      sov: 1.5,
+      sosos: 0.5,
+      turnovers: 0.5,
+      ats: 0.5,
+      qualityWins: 1,
+      winPct: 1.5,
+    },
   },
   {
     label: "Pure results (wins + schedule only)",
-    weights: { offense: 0, defense: 0, margin: 0, sos: 1, sov: 1, sosos: 0.5, winPct: 2 },
+    weights: { ...BASE_WEIGHTS, sos: 1, sov: 1, sosos: 0.5, qualityWins: 1.5, winPct: 2 },
   },
 ];
 
@@ -125,6 +190,11 @@ export function CustomRankingsClient({
       sos: zScores(rows.map((r) => r.sosRating ?? 0)),
       sov: zScores(rows.map((r) => r.sovRating ?? 0)),
       sosos: zScores(rows.map((r) => r.sososRating ?? 0)),
+      successRate: zScores(rows.map((r) => r.successRateNet ?? 0)),
+      explosiveness: zScores(rows.map((r) => r.explosivenessNet ?? 0)),
+      turnovers: zScores(rows.map((r) => r.turnoverMargin ?? 0)),
+      ats: zScores(rows.map((r) => r.atsMargin ?? 0)),
+      qualityWins: zScores(rows.map((r) => r.qualityWins)),
       winPct: zScores(winPct),
     };
 

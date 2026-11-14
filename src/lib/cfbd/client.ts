@@ -101,6 +101,42 @@ export interface CfbdTeamRecord {
   conferenceGames: { wins: number; losses: number; ties: number };
 }
 
+export interface CfbdGameTeamStats {
+  id: number;
+  teams: {
+    teamId: number;
+    team: string;
+    conference: string | null;
+    homeAway: "home" | "away";
+    points: number | null;
+    stats: { category: string; stat: string }[];
+  }[];
+}
+
+export interface CfbdBettingLine {
+  id: number;
+  season: number;
+  seasonType: string;
+  week: number;
+  homeTeamId: number;
+  homeTeam: string;
+  homeScore: number | null;
+  awayTeamId: number;
+  awayTeam: string;
+  awayScore: number | null;
+  lines: { provider: string; spread: number | null }[];
+}
+
+export interface CfbdPollWeek {
+  season: number;
+  seasonType: string;
+  week: number;
+  polls: {
+    poll: string;
+    ranks: { rank: number | null; teamId: number; school: string }[];
+  }[];
+}
+
 export const cfbd = {
   teams: (params: { year?: number } = {}) =>
     cfbdFetch<CfbdTeam[]>("/teams/fbs", params),
@@ -113,4 +149,16 @@ export const cfbd = {
 
   records: (params: { year: number }) =>
     cfbdFetch<CfbdTeamRecord[]>("/records", params),
+
+  // /games/teams requires year plus one of week/team/conference, so callers
+  // must loop over the season's (week, seasonType) pairs rather than fetching
+  // the whole season in one call.
+  gameTeamStats: (params: { year: number; week: number; seasonType?: string }) =>
+    cfbdFetch<CfbdGameTeamStats[]>("/games/teams", params),
+
+  lines: (params: { year: number }) =>
+    cfbdFetch<CfbdBettingLine[]>("/lines", params),
+
+  rankings: (params: { year: number }) =>
+    cfbdFetch<CfbdPollWeek[]>("/rankings", params),
 };

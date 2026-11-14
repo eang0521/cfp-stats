@@ -114,6 +114,11 @@ export const ratings = pgTable(
     sosRating: real("sos_rating"), // avg opponent overall rating (strength of schedule)
     sovRating: real("sov_rating"), // avg overall rating of opponents beaten (strength of victory)
     sososRating: real("sosos_rating"), // avg SOS of opponents (strength of schedule's schedule)
+    successRateNet: real("success_rate_net"), // raw (not opponent-adjusted) offense - defense success rate
+    explosivenessNet: real("explosiveness_net"), // raw offense - defense explosiveness (PPA on successful plays)
+    turnoverMargin: real("turnover_margin"), // avg (opponent turnovers - own turnovers) per game
+    atsMargin: real("ats_margin"), // avg (actual margin - consensus closing spread) per game with a line
+    qualityWins: integer("quality_wins").notNull().default(0), // wins over teams ranked AP top 25 at the time
     wins: integer("wins").notNull().default(0),
     losses: integer("losses").notNull().default(0),
     rank: integer("rank"),

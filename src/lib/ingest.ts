@@ -1,8 +1,14 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "./db/client";
 import { games, ratings, refreshLog, teamGameStats, teamRecords, teams } from "./db/schema";
-import { cfbd } from "./cfbd/client";
+import { cfbd, type CfbdGame, type CfbdGameTeamStats } from "./cfbd/client";
 import { computeRatings, type EfficiencyRow, type GameInput, type TeamInput } from "./ratings/engine";
+import {
+  computeAtsMargin,
+  computeQualityWins,
+  computeSuccessRateExplosiveness,
+  computeTurnoverMargin,
+} from "./ratings/bonus";
 
 export function currentSeasonYear(): number {
   const now = new Date();
@@ -197,6 +203,32 @@ async function upsertRecords(season: number, fbsTeamNames: Set<string>) {
   return rows;
 }
 
+// /games/teams requires year plus week/team/conference, so fetch it one
+// (week, seasonType) pair at a time - with modest concurrency so a full
+// season (~15-18 pairs) doesn't serialize into a long chain of round trips.
+async function fetchGameTeamStatsForSeason(
+  season: number,
+  allGames: CfbdGame[],
+  fbsTeamNames: Set<string>
+): Promise<CfbdGameTeamStats[]> {
+  const pairs = Array.from(new Set(allGames.map((g) => `${g.seasonType}:${g.week}`)));
+  const CONCURRENCY = 5;
+  const results: CfbdGameTeamStats[] = [];
+
+  for (let i = 0; i < pairs.length; i += CONCURRENCY) {
+    const batch = pairs.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map((pair) => {
+        const [seasonType, weekStr] = pair.split(":");
+        return cfbd.gameTeamStats({ year: season, week: Number(weekStr), seasonType });
+      })
+    );
+    for (const rows of batchResults) results.push(...rows);
+  }
+
+  return results.filter((g) => g.teams.some((t) => fbsTeamNames.has(t.team)));
+}
+
 export async function runIngest(season: number = currentSeasonYear()) {
   const [log] = await db
     .insert(refreshLog)
@@ -238,6 +270,39 @@ export async function runIngest(season: number = currentSeasonYear()) {
     const completedWeeks = allGames.filter((g) => g.completed).map((g) => g.week);
     const asOfWeek = completedWeeks.length ? Math.max(...completedWeeks) : 0;
 
+    // Supplementary, purely data-derived resume stats - computed separately
+    // from the core rating solve above (see src/lib/ratings/bonus.ts).
+    const srExpByTeam = computeSuccessRateExplosiveness(
+      advancedStats.map((r) => ({
+        team: r.team,
+        offenseSuccessRate: r.offense?.successRate ?? null,
+        offenseExplosiveness: r.offense?.explosiveness ?? null,
+        defenseSuccessRate: r.defense?.successRate ?? null,
+        defenseExplosiveness: r.defense?.explosiveness ?? null,
+      }))
+    );
+
+    const gameTeamStatsRows = await fetchGameTeamStatsForSeason(season, allGames, fbsTeamNames);
+    const turnoverMarginByTeam = computeTurnoverMargin(gameTeamStatsRows, fbsTeamNames);
+
+    const lines = await cfbd.lines({ year: season });
+    const atsMarginByTeam = computeAtsMargin(lines, fbsTeamNames);
+
+    const pollWeeks = await cfbd.rankings({ year: season });
+    const qualityWinsByTeam = computeQualityWins(
+      allGames.map((g) => ({
+        homeTeam: g.homeTeam,
+        awayTeam: g.awayTeam,
+        homePoints: g.homePoints,
+        awayPoints: g.awayPoints,
+        completed: g.completed,
+        week: g.week,
+        seasonType: g.seasonType,
+      })),
+      fbsTeamNames,
+      pollWeeks
+    );
+
     for (const batch of chunk(computed, 200)) {
       await db
         .insert(ratings)
@@ -255,6 +320,11 @@ export async function runIngest(season: number = currentSeasonYear()) {
             sosRating: r.sosRating,
             sovRating: r.sovRating,
             sososRating: r.sososRating,
+            successRateNet: srExpByTeam.get(r.team)?.successRateNet ?? null,
+            explosivenessNet: srExpByTeam.get(r.team)?.explosivenessNet ?? null,
+            turnoverMargin: turnoverMarginByTeam.get(r.team) ?? null,
+            atsMargin: atsMarginByTeam.get(r.team) ?? null,
+            qualityWins: qualityWinsByTeam.get(r.team) ?? 0,
             wins: r.wins,
             losses: r.losses,
             rank: r.rank,
@@ -274,6 +344,11 @@ export async function runIngest(season: number = currentSeasonYear()) {
             sosRating: sql`excluded.sos_rating`,
             sovRating: sql`excluded.sov_rating`,
             sososRating: sql`excluded.sosos_rating`,
+            successRateNet: sql`excluded.success_rate_net`,
+            explosivenessNet: sql`excluded.explosiveness_net`,
+            turnoverMargin: sql`excluded.turnover_margin`,
+            atsMargin: sql`excluded.ats_margin`,
+            qualityWins: sql`excluded.quality_wins`,
             wins: sql`excluded.wins`,
             losses: sql`excluded.losses`,
             rank: sql`excluded.rank`,
