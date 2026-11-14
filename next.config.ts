@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // drizzle's migrator reads these files with raw fs calls at runtime, which
+  // the build's file tracer can't follow statically — force them into the
+  // /api/migrate function's bundle explicitly.
+  outputFileTracingIncludes: {
+    "/api/migrate": ["./drizzle/**/*"],
+  },
 };
 
 export default nextConfig;
