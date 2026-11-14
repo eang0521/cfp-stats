@@ -112,6 +112,9 @@ export const ratings = pgTable(
     overallRating: real("overall_rating").notNull(), // offenseRating - defenseRating, scaled
     srsRating: real("srs_rating"), // margin-based SRS blend component
     sosRating: real("sos_rating"), // avg opponent overall rating (strength of schedule)
+    sovRating: real("sov_rating"), // avg overall rating of opponents beaten (strength of victory)
+    wins: integer("wins").notNull().default(0),
+    losses: integer("losses").notNull().default(0),
     rank: integer("rank"),
     gamesPlayed: integer("games_played").notNull().default(0),
     computedAt: timestamp("computed_at", { withTimezone: true })

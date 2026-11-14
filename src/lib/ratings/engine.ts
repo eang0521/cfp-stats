@@ -46,6 +46,10 @@ export interface RatingRow {
   overallRating: number;
   srsRating: number;
   sosRating: number;
+  /** Strength of victory: average overall rating of opponents this team has beaten. */
+  sovRating: number;
+  wins: number;
+  losses: number;
   gamesPlayed: number;
   rank: number;
 }
@@ -213,9 +217,23 @@ export function computeRatings(
 
   // Strength of schedule: average blended-overall rating of opponents actually played.
   const sos = new Map<string, number>();
+  // Strength of victory: average blended-overall rating of opponents beaten.
+  const sov = new Map<string, number>();
+  const winsByTeam = new Map<string, number>();
+  const lossesByTeam = new Map<string, number>();
   for (const team of teamNames) {
-    const opponents = (srsGamesByTeam.get(team) ?? []).map((g) => g.opponent);
+    const results = srsGamesByTeam.get(team) ?? [];
+    const opponents = results.map((g) => g.opponent);
     sos.set(team, mean(opponents.map((o) => blendedOverall.get(o) ?? 0)));
+
+    const beatenOpponents = results.filter((g) => g.margin > 0).map((g) => g.opponent);
+    sov.set(
+      team,
+      beatenOpponents.length ? mean(beatenOpponents.map((o) => blendedOverall.get(o) ?? 0)) : 0
+    );
+
+    winsByTeam.set(team, results.filter((g) => g.margin > 0).length);
+    lossesByTeam.set(team, results.filter((g) => g.margin < 0).length);
   }
 
   const teamByName = new Map(teams.map((t) => [t.school, t]));
@@ -231,6 +249,9 @@ export function computeRatings(
       overallRating: blendedOverall.get(team) ?? 0,
       srsRating: srs.get(team) ?? 0,
       sosRating: sos.get(team) ?? 0,
+      sovRating: sov.get(team) ?? 0,
+      wins: winsByTeam.get(team) ?? 0,
+      losses: lossesByTeam.get(team) ?? 0,
       gamesPlayed: (effGamesByTeam.get(team) ?? []).length,
       rank: 0,
     };

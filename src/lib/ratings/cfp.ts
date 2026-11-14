@@ -44,10 +44,17 @@ export function determineConferenceChampions(
   // NAIA...), not just FBS. Scope "conferences" down to ones that actually
   // have an FBS (rated) member, otherwise this fills up with hundreds of
   // small-college conferences that can never appear in the CFP field anyway.
+  //
+  // "FBS Independents" isn't a real conference - it has no championship
+  // game and produces no champion, so Notre Dame/UConn/etc. are only ever
+  // eligible for an at-large bid, never an auto-bid. Exclude it here rather
+  // than relying on it simply never matching a championship-game notes
+  // string, since the best-conference-record fallback would otherwise
+  // happily crown whichever independent has the best record.
   const conferences = new Set(
     Array.from(ratingByTeam.values())
       .map((r) => r.conference)
-      .filter((c): c is string => !!c)
+      .filter((c): c is string => !!c && !/independent/i.test(c))
   );
 
   const champFromGame = new Map<string, ConferenceChampion>();

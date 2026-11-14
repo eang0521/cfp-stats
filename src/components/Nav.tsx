@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/rankings", label: "Rankings" },
   { href: "/predictions", label: "Predictions" },
   { href: "/cfp", label: "CFP Projection" },
+  { href: "/custom", label: "Build Your Own" },
 ];
 
 export function Nav() {
